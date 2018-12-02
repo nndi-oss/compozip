@@ -1,0 +1,9 @@
+{
+    "name": "compozip/test",
+    "description": "Compozip Test Project",
+    "type": "project",
+    "require": {
+        "apix/log": "1.1.*"
+    },
+    "license": "MIT"
+}

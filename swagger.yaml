@@ -1,0 +1,67 @@
+paths:
+  /vendor:
+    post:
+      operationId: DownloadVendorArchive
+      summary: 'Download Vendor Archive'
+      description: DownloadVendorArchive
+      responses:
+        '200':
+          description: 'Archived Vendor directory'
+          schema:
+            x-oad-type: object
+            type: object
+          x-oad-type: response
+      parameters:
+        -
+          name: name
+          in: path
+          required: true
+          type: string
+          x-oad-type: parameter
+        -
+          name: extension
+          in: path
+          required: true
+          type: string
+          enum:
+            - zip
+            - tar.gz
+          x-oad-type: parameter
+        -
+          name: composer
+          in: formData
+          description: 'The composer.json file'
+          required: true
+          type: file
+          x-oad-type: parameter
+    x-oad-type: operation
+responses:
+  Error:
+    description: 'Error Response'
+    schema:
+      x-oad-type: string
+      title: Error
+      type: string
+      readOnly: true
+    x-oad-type: response
+info:
+  title: Compozipd
+  version: 1.0.0
+  description: 'Upload a composer.json file and download an archived vendor archive with all the dependencies downloaded.'
+  contact:
+    name: 'Zikani Nyirenda Mwase'
+    email: zikani@nndi-tech.com
+    url: 'https://github.com/nndi-oss/compozipd'
+  license:
+    name: MIT
+    url: 'https://mit-license.org'
+basePath: /
+schemes:
+  - http
+  - https
+consumes:
+  - application/json
+produces:
+  - application/zip
+  - application/gzip
+swagger: '2.0'
