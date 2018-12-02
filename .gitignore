@@ -1,4 +1,7 @@
 compozipd
+compozip
 /uploads/
 /cache/
 /build/
+vendor.zip
+vendor.tar

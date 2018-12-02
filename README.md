@@ -24,21 +24,21 @@ $ compozipd -u PATH_TO_UPLOADS_DIRECTORY
 curl -i -F "composer=@test_composer.json" --output test-vendor.zip -XPOST http://localhost:8080/vendor/test/zip
 ```
 
-### Download with `compozip` client (concept)
+### Download with `compozip` CLI
 
 ```sh
-$ compozip -f composer.json
-Uploading composer.json...
-Downloading vendor archive...
-Extracting vendor archive to vendor...
-$ ls vendor
-... stuff...
+$ ./compozip -port 8080 -c test_composer.json
+Uploading test_composer.json ...
+Downloading vendor archive (vendor.zip)...
+Downloaded vendor archive to vendor.zip
+
+$ ls
+test_composer.json  vendor.zip.
 ```
 
 # LICENSE
 
 MIT
-
 
 ----
 
