@@ -1,10 +1,15 @@
 package main
 
+// TODO: Add goroutine to perform clean up, remove directories after 10 minutes
+// TODO: Record the project and status in a database (e.g. project: VALIDATING)
+
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"os/exec"
@@ -27,11 +32,11 @@ func init() {
 }
 
 type composerProject struct {
-	Name         string `json="name=name"`
-	FileLocation string
+	ProjectName string `json:"name"`
+	Filename    string `json:"-"`
 }
 
-func vendorHandler(w http.ResponseWriter, r *http.Request) {
+func parseURLParameters(w http.ResponseWriter, r *http.Request) (string, string, error) {
 	params := mux.Vars(r)
 	projectURLName := string(params["name"])
 	archiveFormat := strings.ToLower(params["extension"])
@@ -40,16 +45,19 @@ func vendorHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(400)
 		w.Header().Add("Content-Type", "text/plain")
 		fmt.Fprint(w, "Please specify valid archive type, either 'zip' or 'tar'")
-		return
+		return projectURLName, archiveFormat, errors.New("Invalid file type specified")
 	}
-	appLogger.Info("Processing request for vendor/extension", "vendor", projectURLName, "extension", archiveFormat)
+	return projectURLName, archiveFormat, nil
+}
+
+func readMultipartForm(w http.ResponseWriter, r *http.Request) (*multipart.FileHeader, []byte, error) {
 	multipartReader, err := r.MultipartReader()
 	if err != nil {
 		appLogger.Error("Failed to get MultipartReader.", "error", err)
 		w.WriteHeader(400)
 		w.Header().Add("Content-Type", "text/plain")
 		fmt.Fprint(w, "File could not be read in request")
-		return
+		return nil, nil, err
 	}
 	var MaxMemoryBytes int64 = 1024 * 1000
 	// 1. save composer.json in new directory
@@ -59,7 +67,7 @@ func vendorHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(400)
 		w.Header().Add("Content-Type", "text/plain")
 		fmt.Fprintf(w, "File could not be read in request")
-		return
+		return nil, nil, err
 	}
 	composerFiles := multiPartForm.File["composer"]
 	if composerFiles == nil || len(composerFiles) < 1 {
@@ -67,7 +75,7 @@ func vendorHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(400)
 		w.Header().Add("Content-Type", "text/plain")
 		fmt.Fprint(w, "File could not be read in request")
-		return
+		return nil, nil, err
 	}
 	composerFile := composerFiles[0] // first file
 	composerJSONBytes, err := ioutil.ReadFile(composerFile.Filename)
@@ -76,35 +84,40 @@ func vendorHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(400)
 		w.Header().Add("Content-Type", "text/plain")
 		fmt.Fprint(w, "File could not be read in request.")
-		return
+		return nil, nil, err
 	}
-	// 2. parse the composer.json into a composerProject struct
+	return composerFile, composerJSONBytes, nil
+}
+
+func parseComposerJSON(w http.ResponseWriter, composerJSONBytes []byte, filename string) (*composerProject, error) {
 	var composerJSON composerProject
-	err = json.Unmarshal(composerJSONBytes, &composerJSON)
+	err := json.Unmarshal(composerJSONBytes, &composerJSON)
 	if err != nil {
-		appLogger.Error("Failed to parse JSON", "filename", composerFile.Filename, "error", err)
+		appLogger.Error("Failed to parse JSON", "filename", filename, "error", err)
 		w.WriteHeader(400)
 		w.Header().Add("Content-Type", "text/plain")
 		fmt.Fprint(w, "File could not be read in request.")
-		return
+		return nil, err
 	}
-	// 3. get the name of the project
-	// w.WriteHeader(201)
-	// fmt.Fprintf(w, "Got project name from composer.json: %s", composerJSON.Name)
-	// 4. Create a directory for the project
-	dir, err := ioutil.TempDir(uploadsDir, projectURLName)
+	return &composerJSON, nil
+}
+
+func createProjectDirectory(w http.ResponseWriter, directoryName string, data []byte) (string, error) {
+	// TODO: SHA256 of the data to be the directory name?
+	dir, err := ioutil.TempDir(uploadsDir, directoryName)
 	if err != nil {
 		appLogger.Error("Failed to create tmp directory.", "error", err)
 		w.WriteHeader(500)
 		w.Header().Add("Content-Type", "text/plain")
 		fmt.Fprint(w, "Failed to validate composer.json file - please submit a valid composer file")
-		return
+		return dir, err
 	}
-	// 5. Copy composer.json to the directory
-	ioutil.WriteFile(path.Join(dir, "composer.json"), composerJSONBytes, 0664)
-	// 6. Run composer validate
-	// var outputStream []byte
-	// 6.1. If there are validation errors, return 400 Bad Request
+	err = ioutil.WriteFile(path.Join(dir, "composer.json"), data, 0664)
+
+	return dir, err
+}
+
+func composerValidate(w http.ResponseWriter, dir string) error {
 	cmd := exec.Command("composer", "validate")
 	cmd.Dir = dir
 	appLogger.Debug("Running composer validate.", "PWD", dir)
@@ -114,27 +127,31 @@ func vendorHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(400)
 		w.Header().Add("Content-Type", "text/plain")
 		fmt.Fprint(w, "Failed to validate composer.json file - please submit a valid composer file")
-		return
+		return err
 	}
-	// 7. Record the project and status in the database (project -> DOWNLOADING)
-	// TODO:implement step 7
-	// 8. Create a "worker" to download the dependencies, return 201 Accepted
-	cmd = exec.Command("composer", "install")
+	return nil
+}
+
+func composerInstall(w http.ResponseWriter, dir string) error {
+	cmd := exec.Command("composer", "install")
 	cmd.Dir = dir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	appLogger.Debug("Running composer install.", "PWD", dir)
-	err = cmd.Run()
+	err := cmd.Run()
 	// output, err = cmd.CombinedOutput()
 	if err != nil || !cmd.ProcessState.Success() {
 		appLogger.Error("Failed to run 'composer install'.", "error", err) // string(output))
 		w.WriteHeader(500)
 		w.Header().Add("Content-Type", "text/plain")
 		fmt.Fprintf(w, "Failed to download Composer depedencies.") // Got output: %s", string(output))
-		return
+		return err
 	}
-	// 9. Run `composer archive` to archive the composer dependencies
-	cmd = exec.Command("composer", "archive",
+	return nil
+}
+
+func composerArchive(w http.ResponseWriter, dir string, archiveFormat string) error {
+	cmd := exec.Command("composer", "archive",
 		"--file=vendor",
 		fmt.Sprintf("--format=%s", strings.ToLower(archiveFormat)),
 		"--quiet",
@@ -143,30 +160,29 @@ func vendorHandler(w http.ResponseWriter, r *http.Request) {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	appLogger.Debug("Running composer archive.", "PWD", dir)
-	err = cmd.Run()
+	err := cmd.Run()
 	// output, err = cmd.CombinedOutput()
 	if err != nil || !cmd.ProcessState.Success() {
 		appLogger.Error("Failed to run 'composer archive'", "error", err) // string(output))
 		w.WriteHeader(500)
 		w.Header().Add("Content-Type", "text/plain")
 		fmt.Fprint(w, "Failed to create Composer archive.")
-		return
+		return err
 	}
-	composerZIPBytes, err := ioutil.ReadFile(path.Join(dir, "vendor.zip"))
+	return nil
+}
+
+func sendDownload(w http.ResponseWriter, dir string) error {
+	vendorZIP := path.Join(dir, "vendor.zip")
+	composerZIPBytes, err := ioutil.ReadFile(vendorZIP)
 	if err != nil {
 		appLogger.Error("Failed to run ReadFile vendor.zip", "error", err)
 		w.WriteHeader(500)
 		w.Header().Add("Content-Type", "text/plain")
 		fmt.Fprint(w, "Failed to create Composer archive.")
-		return
+		return err
 	}
-
-	sendDownload(w, composerZIPBytes)
-	// 10. Update status of (project -> COMPLETE) in the database
-	// 11. Clean up, remove archive after 10 minutes
-}
-
-func sendDownload(w http.ResponseWriter, fileBytes []byte) {
+	appLogger.Info("Sending vendor.zip to client", "file", vendorZIP)
 	w.Header().Add("Content-Type", "application/force-download")
 	w.Header().Add("Content-Type", "application/octet-stream")
 	w.Header().Add("Content-Type", "application/download")
@@ -176,7 +192,46 @@ func sendDownload(w http.ResponseWriter, fileBytes []byte) {
 	w.Header().Add("Expires", "0")
 	w.Header().Add("Cache-Control", "must-revalidate, post-check=0, pre-check=0")
 	w.Header().Add("Pragma", "public")
-	w.Write(fileBytes) // all stream contents will be sent to the response
+	w.Write(composerZIPBytes) // all stream contents will be sent to the response
+	return nil
+}
+
+// VendorHandler Handles the Http request
+func VendorHandler(w http.ResponseWriter, r *http.Request) {
+	projectURLName, archiveFormat, err := parseURLParameters(w, r)
+	if err != nil {
+		return
+	}
+	appLogger.Info("Processing request for vendor/extension",
+		"vendor", projectURLName, "extension", archiveFormat)
+	// 2. parse the composer.json into a composerProject struct
+	formFile, composerJSONBytes, err := readMultipartForm(w, r)
+	if err != nil {
+		return
+	}
+	composerJSON, err := parseComposerJSON(w, composerJSONBytes, formFile.Filename)
+	if err != nil {
+		return
+	}
+	composerJSON.Filename = projectURLName
+	dir, err := createProjectDirectory(w, projectURLName, composerJSONBytes)
+	if err != nil {
+		return
+	}
+	appLogger.Info("Processing composer.json", "project", composerJSON.ProjectName, "directory", dir)
+
+	if err = composerValidate(w, dir); err != nil {
+		return
+	}
+	if err = composerInstall(w, dir); err != nil {
+		return
+	}
+
+	if err = composerArchive(w, dir, archiveFormat); err != nil {
+		return
+	}
+
+	sendDownload(w, dir)
 }
 
 func main() {
@@ -187,7 +242,7 @@ func main() {
 		Level: hclog.LevelFromString("DEBUG"),
 	})
 	router := mux.NewRouter()
-	router.HandleFunc("/vendor/{name}/{extension}", vendorHandler).Methods("POST")
+	router.HandleFunc("/vendor/{name}/{extension}", VendorHandler).Methods("POST")
 	http.Handle("/", router)
 	appLogger.Info("Starting server...")
 	if err := http.ListenAndServe(bind, nil); err != nil {
