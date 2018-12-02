@@ -22,6 +22,34 @@ Content-Type: multipart/form-data
 composer=FILE_DATA
 ```
 
+## Downloading Vendor archives
+
+You may be thinking it's too much work to download from that API endpoint.
+Fortunately, you don't have to code to download from the API endpoint.
+
+You have at least two options, illustrated below:
+
+### Download with CURL
+
+```sh
+curl -i -F "composer=@test_composer.json" --output test-vendor.zip -XPOST http://localhost:8080/vendor/test/zip
+```
+
+### Download with `compozip` CLI
+
+```sh
+$ ./compozip -port 8080 -c test_composer.json
+Uploading test_composer.json ...
+Downloading vendor archive (vendor.zip)...
+Downloaded vendor archive to vendor.zip
+
+$ ls
+test_composer.json  vendor.zip.
+```
+
+<small>NOTE: You should be able to use a tool like [Postman](https://getpostman.com) 
+or create your own HTML form ([See example in index.html](./index.html))</small>
+
 ## Building the code
 
 You need to have [Go 1.11 (or greater)](https://golang.org), [PHP](https://php.net) and [Composer](https://getcomposer.org) installed.
@@ -55,26 +83,6 @@ Use the following commands to build and start the Docker container.
 ```sh
 $ sudo docker	build --rm -t=compozipd .
 $ sudo docker	run --rm --publish=80:80 -it compozipd
-```
-
-## Downloading Vendor archives
-
-### Download with CURL
-
-```sh
-curl -i -F "composer=@test_composer.json" --output test-vendor.zip -XPOST http://localhost:8080/vendor/test/zip
-```
-
-### Download with `compozip` CLI
-
-```sh
-$ ./compozip -port 8080 -c test_composer.json
-Uploading test_composer.json ...
-Downloading vendor archive (vendor.zip)...
-Downloaded vendor archive to vendor.zip
-
-$ ls
-test_composer.json  vendor.zip.
 ```
 
 ## Why did you make this?
