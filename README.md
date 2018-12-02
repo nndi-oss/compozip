@@ -35,6 +35,11 @@ $ ls vendor
 ... stuff...
 ```
 
+# LICENSE
+
+MIT
+
+
 ----
 
-MIT License (c) Zikani Nyirenda Mwase, 2018
+Copyright (c) 2018, Zikani Nyirenda Mwase
