@@ -234,13 +234,29 @@ func VendorHandler(w http.ResponseWriter, r *http.Request) {
 	sendDownload(w, dir)
 }
 
+func phpAndComposerExist() bool {
+	err := exec.Command("php", "--version && composer --version").Run()
+	return err == nil
+}
+
 func main() {
 	flag.Parse()
-
 	appLogger = hclog.New(&hclog.LoggerOptions{
 		Name:  "compozipd",
 		Level: hclog.LevelFromString("DEBUG"),
 	})
+
+	if !phpAndComposerExist() {
+		fmt.Fprintf(os.Stderr, `Either PHP or Composer was not found in your $PATH.
+Please make sure you have both 'php' and 'composer' installed.
+
+Download PHP: http://php.net/downloads.php
+Download Composer: https://getcomposer.org
+
+Thanks! :)`)
+		return
+	}
+
 	router := mux.NewRouter()
 	router.HandleFunc("/vendor/{name}/{extension}", VendorHandler).Methods("POST")
 	http.Handle("/", router)
