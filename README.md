@@ -54,6 +54,8 @@ or create your own HTML form ([See example in index.html](./index.html))</small>
 
 You need to have [Go 1.11 (or greater)](https://golang.org), [PHP](https://php.net) and [Composer](https://getcomposer.org) installed.
 
+You MUST build the code before starting the server.
+
 ```sh
 $ git clone https://github.com/zikani03/compozipd.git
 $ cd compozipd
