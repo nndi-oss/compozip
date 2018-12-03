@@ -1,5 +1,5 @@
 build:
-	@go build -ldflags "-s -w"
+	@go build -ldflags "-s -w" compozipd.go
 
 clean:
 	@rm compozipd
