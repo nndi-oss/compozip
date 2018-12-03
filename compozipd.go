@@ -77,8 +77,11 @@ func readMultipartForm(w http.ResponseWriter, r *http.Request) (*multipart.FileH
 		fmt.Fprint(w, "File could not be read in request")
 		return nil, nil, err
 	}
-	composerFile := composerFiles[0] // first file
-	composerJSONBytes, err := ioutil.ReadFile(composerFile.Filename)
+	composerFormPart := composerFiles[0] // first file
+	composerFile, err := composerFormPart.Open()
+	defer composerFile.Close()
+
+	composerJSONBytes, err := ioutil.ReadAll(composerFile)
 	if err != nil {
 		appLogger.Error("Failed to read composer.json file from disk", "error", err)
 		w.WriteHeader(400)
@@ -86,7 +89,7 @@ func readMultipartForm(w http.ResponseWriter, r *http.Request) (*multipart.FileH
 		fmt.Fprint(w, "File could not be read in request.")
 		return nil, nil, err
 	}
-	return composerFile, composerJSONBytes, nil
+	return composerFormPart, composerJSONBytes, nil
 }
 
 func parseComposerJSON(w http.ResponseWriter, composerJSONBytes []byte, filename string) (*composerProject, error) {
