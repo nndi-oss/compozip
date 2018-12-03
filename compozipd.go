@@ -244,13 +244,19 @@ func phpAndComposerExist() bool {
 
 func main() {
 	flag.Parse()
+
+	if _, err := os.Stat(uploadsDir); os.IsNotExist(err) {
+		fmt.Fprintf(os.Stderr, "Specified directory '%s' does not exist or could not be found", uploadsDir)
+		return
+	}
+
 	appLogger = hclog.New(&hclog.LoggerOptions{
 		Name:  "compozipd",
 		Level: hclog.LevelFromString("DEBUG"),
 	})
 
 	if !phpAndComposerExist() {
-		fmt.Fprintf(os.Stderr, `Either PHP or Composer was not found in your $PATH.
+		fmt.Fprint(os.Stderr, `Either PHP or Composer was not found in your $PATH.
 Please make sure you have both 'php' and 'composer' installed.
 
 Download PHP: http://php.net/downloads.php
@@ -263,7 +269,7 @@ Thanks! :)`)
 	router := mux.NewRouter()
 	router.HandleFunc("/vendor/{name}/{extension}", VendorHandler).Methods("POST")
 	http.Handle("/", router)
-	appLogger.Info("Starting server...")
+	appLogger.Info("Starting server", "address", bind, "workingDirectory", uploadsDir)
 	if err := http.ListenAndServe(bind, nil); err != nil {
 		appLogger.Error("Failed to start Server", "error", err)
 	}
