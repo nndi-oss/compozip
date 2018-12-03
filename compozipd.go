@@ -172,23 +172,23 @@ func composerArchive(w http.ResponseWriter, dir string, archiveFormat string) er
 	return nil
 }
 
-func sendDownload(w http.ResponseWriter, dir string) error {
-	vendorZIP := path.Join(dir, "vendor.zip")
+func sendDownload(w http.ResponseWriter, dir, archiveFormat string) error {
+	vendorZIP := path.Join(dir, fmt.Sprintf("vendor.%s", archiveFormat))
 	composerZIPBytes, err := ioutil.ReadFile(vendorZIP)
 	if err != nil {
-		appLogger.Error("Failed to run ReadFile vendor.zip", "error", err)
+		appLogger.Error("Failed to run ReadFile vendor archive", "error", err)
 		w.WriteHeader(500)
 		w.Header().Add("Content-Type", "text/plain")
 		fmt.Fprint(w, "Failed to create Composer archive.")
 		return err
 	}
-	appLogger.Info("Sending vendor.zip to client", "file", vendorZIP)
+	appLogger.Info("Sending vendor archive to client", "file", vendorZIP)
 	w.Header().Add("Content-Type", "application/force-download")
 	w.Header().Add("Content-Type", "application/octet-stream")
 	w.Header().Add("Content-Type", "application/download")
 	w.Header().Add("Content-Description", "File Transfer")
 	w.Header().Add("Content-Transfer-Encoding", "binary")
-	w.Header().Add("Content-Disposition", "attachment; filename=\"vendor.zip\"")
+	w.Header().Add("Content-Disposition", fmt.Sprintf("attachment; filename=\"vendor.%s\"", archiveFormat))
 	w.Header().Add("Expires", "0")
 	w.Header().Add("Cache-Control", "must-revalidate, post-check=0, pre-check=0")
 	w.Header().Add("Pragma", "public")
@@ -231,7 +231,7 @@ func VendorHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sendDownload(w, dir)
+	sendDownload(w, dir, archiveFormat)
 }
 
 func phpAndComposerExist() bool {
