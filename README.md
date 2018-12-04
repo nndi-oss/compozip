@@ -4,7 +4,7 @@ Compozip
 This project implements a server (and client) for downloading packaged composer
 vendor folders.
 
-You upload your `composer.json` or `composer.lock` and the server will take of downloading the 
+Upload your `composer.json` or `composer.lock` and the server will take of downloading the 
 dependencies and zip them up in a nice downloadable archive.
 
 Vendor archives can be downloaded as either `zip` or `tar` archives.
@@ -124,23 +124,22 @@ seem to find it, so I decided to implement it myself.
 
 ## What problem does it solve/address?
 
-It solves a problem that shouldn't be there, but unfortunately downloading composer
-dependencies sometimes takes a long time when you're living in a 
-third-world country with slow internet since Composer has to do multiple HTTP/Git requests.
+Unfortunately downloading composer dependencies sometimes takes a long time 
+since Composer has to do multiple HTTP/Git requests.
 
-The idea is to put this on a fast server in the Cloud to download the dependencies,
-and just download the archive which _should be_ faster since it's just one HTTP
-request instead of bajillions.
+> The idea is to put this on a fast server in the Cloud to download the dependencies,
+> and just download the archive which _should be_ faster since it's just one HTTP
+> request instead of bajillions.
 
-I intend to try using something like [WebSockets](https://w3c.github.io/websockets/)
-or [Rsocket](https://rsocket.io) to stream the bytes of the vendor archive to 
-the client. I hope that would make it somewhat faster to download the archive - 
-not sure how true that is, yet.
+I intend to try using either [WebSockets](https://w3c.github.io/websockets/),
+Server Sent Events or [Rsocket](http://rsocket.io) to stream the bytes of the 
+vendor archive to the client.
+I hope that would make it somewhat faster to download the archive - not sure how true that is, yet.
 
 ## Caveats
 
 * There is no guarantee that downloading the vendor archive will be faster than running
-`composer install` on your machine as composer most likely has caches on your machine if
+`composer install` on your machine as composer most likely has a cache on your machine if
 you use it often.
 
 * This won't play nicely with private repositories/composer packages. I don't know
@@ -154,12 +153,9 @@ PHP extensions to prevent this from happening. Contributions are WELCOME here!
 
 * This is not _production_ ready but you are FREE to try whatever, yo.
 
-
 ## Contributing
 
-So yea, you can file an Issue if you find a bug (most likely) or
-have an Idea to improve this and I will try my best to resolve it.
-
+You can file an Issue if you find a bug or have an Idea to improve this.
 Pull requests are most welcome and encouraged. :)
 
 ## LICENSE
