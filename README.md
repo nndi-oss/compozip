@@ -4,7 +4,7 @@ Compozip
 This project implements a server (and client) for downloading packaged composer
 vendor folders.
 
-You upload your `composer.json` and the server will take of downloading the 
+You upload your `composer.json` or `composer.lock` and the server will take of downloading the 
 dependencies and zip them up in a nice downloadable archive.
 
 Vendor archives can be downloaded as either `zip` or `tar` archives.
@@ -31,24 +31,54 @@ You have at least two options, illustrated below:
 
 ### Download with CURL
 
+With a `composer.json` file:
+
 ```sh
-curl -i -F "composer=@test_composer.json" --output test-vendor.zip -XPOST http://localhost:8080/vendor/test/zip
+$ curl -i -F "composer=@composer.json" --output test-vendor.zip -XPOST http://localhost:8080/vendor/test/zip
+```
+
+Or with a `composer.lock` file:
+
+```
+$ curl -i -F "composer=@composer.lock" --output test-vendor.zip -XPOST http://localhost:8080/vendor/test/zip
 ```
 
 ### Download with `compozip` CLI
 
 ```sh
-$ ./compozip -port 8080 -c test_composer.json
-Uploading test_composer.json ...
+$ ./compozip -port 8080 -c composer.json
+Uploading composer.json ...
 Downloading vendor archive (vendor.zip)...
 Downloaded vendor archive to vendor.zip
 
 $ ls
-test_composer.json  vendor.zip.
+composer.json  vendor.zip
 ```
 
 <small>NOTE: You should be able to use a tool like [Postman](https://getpostman.com) 
 or create your own HTML form ([See example in index.html](./index.html))</small>
+
+## Archives generated from `composer.lock` files
+
+When you upload a `composer.lock` file, you get repeatability in the downloaded archive since the 
+dependencies in a lock file are locked to specific versions. This is great for repeatable builds!
+
+> **NOTE**: The downloaded zip or tar archive generated from a `composer.lock`
+> will contain a stub `composer.json`. It is only there to make the backend processing faster.
+> Make sure you do not overwrite your original `composer.json` with this file.
+
+The stub `composer.json` has the following contents:
+
+```json
+{
+	"name": "compozip/generated",
+	"description": "This is a stub composer.json generated because you uploaded a composer.lock file. Please discard it and use your original composer.json.",
+	"license": "MIT",
+	"require": {
+		"php":">=5.6.30"
+	}
+}
+```
 
 ## Building the code
 
@@ -110,7 +140,7 @@ not sure how true that is, yet.
 ## Caveats
 
 * There is no guarantee that downloading the vendor archive will be faster than running
-`composer install` on your machine as composer most likely has caches on your PC if
+`composer install` on your machine as composer most likely has caches on your machine if
 you use it often.
 
 * This won't play nicely with private repositories/composer packages. I don't know
@@ -118,7 +148,7 @@ a good solution for that yet. Sorry.
 
 * The Docker image/container uses [php:7.2-fpm-alpine](https://github.com/docker-library/php/blob/b99209cc078ebb7bf4614e870c2d69e0b3bed399/7.2/alpine3.8/fpm/Dockerfile) 
 image from [Dockerhub](https://hub.docker.com/_/php/) and as such may NOT contain
-all the PHP extensions that dependencies in your `composer.json` require. I
+all the PHP extensions that dependencies in your `composer.json` or `composer.lock` require. I
 might create a base Docker image sometime that installs the MOST common 
 PHP extensions to prevent this from happening. Contributions are WELCOME here!
 

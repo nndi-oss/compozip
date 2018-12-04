@@ -2,9 +2,7 @@ FROM php:7.2-fpm-alpine
 MAINTAINER "Zikani Nyirenda Mwase <zikani@nndi-tech.com>"
 ADD composer.sh /bin/composer
 ADD compozipd /
-RUN mkdir /uploads \
-  && echo '{"name":"compozip/dummy","require":{"php":">=5.6.30"}}' > /uploads/composer.json \
-  && chmod +x /bin/composer
+RUN mkdir /uploads && chmod +x /bin/composer
 COPY composer-installer.sh /composer-installer.sh
 RUN chmod +x /composer-installer.sh && /composer-installer.sh
 ENV COMPOSER_CACHE_DIR /tmp

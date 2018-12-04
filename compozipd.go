@@ -26,14 +26,27 @@ var (
 	appLogger  hclog.Logger
 )
 
+const (
+	dummyComposer = `{
+	"name": "compozip/generated",
+	"description": "This is a stub composer.json generated because you uploaded a composer.lock file. Please discard it and use your original composer.json.",
+	"license": "MIT",
+	"require": {
+		"php":">=5.6.30"
+	}
+}`
+)
+
 func init() {
 	flag.StringVar(&bind, "h", ":8080", "Address to bind the server to default ':8080'")
 	flag.StringVar(&uploadsDir, "u", ".", "Upload directory")
 }
 
 type composerProject struct {
-	ProjectName string `json:"name"`
-	Filename    string `json:"-"`
+	ProjectName    string `json:"name"`
+	ContentHash    string `json:"content-hash,omitempty"`
+	directory      string
+	isComposerLock bool
 }
 
 func parseURLParameters(w http.ResponseWriter, r *http.Request) (string, string, error) {
@@ -60,7 +73,6 @@ func readMultipartForm(w http.ResponseWriter, r *http.Request) (*multipart.FileH
 		return nil, nil, err
 	}
 	var MaxMemoryBytes int64 = 1024 * 1000
-	// 1. save composer.json in new directory
 	multiPartForm, err := multipartReader.ReadForm(MaxMemoryBytes)
 	if err != nil {
 		appLogger.Error("Failed to parse Multipart-Form.", "error", err)
@@ -102,45 +114,55 @@ func parseComposerJSON(w http.ResponseWriter, composerJSONBytes []byte, filename
 		fmt.Fprint(w, "File could not be read in request.")
 		return nil, err
 	}
+
+	composerJSON.isComposerLock = strings.HasSuffix(filename, ".lock")
 	return &composerJSON, nil
 }
 
-func createProjectDirectory(w http.ResponseWriter, directoryName string, data []byte) (string, error) {
-	// TODO: SHA256 of the data to be the directory name?
-	dir, err := ioutil.TempDir(uploadsDir, directoryName)
+func createProjectDirectory(w http.ResponseWriter, composerJSON *composerProject, data []byte) (string, error) {
+	dir, err := ioutil.TempDir(uploadsDir, "vendor")
 	if err != nil {
 		appLogger.Error("Failed to create tmp directory.", "error", err)
 		w.WriteHeader(500)
 		w.Header().Add("Content-Type", "text/plain")
-		fmt.Fprint(w, "Failed to validate composer.json file - please submit a valid composer file")
+		fmt.Fprint(w, "Failed to validate Composer file - please submit a valid composer.json or composer.lock file")
 		return dir, err
 	}
-	err = ioutil.WriteFile(path.Join(dir, "composer.json"), data, 0664)
+	if composerJSON.isComposerLock {
+		err = ioutil.WriteFile(path.Join(dir, "composer.json"), []byte(dummyComposer), 0664)
+		if err != nil {
+			appLogger.Error("Failed to write dummy json", "dir", dir, "error", err)
+			return dir, err
+		}
+		err = ioutil.WriteFile(path.Join(dir, "composer.lock"), data, 0664)
+	} else {
+		err = ioutil.WriteFile(path.Join(dir, "composer.json"), data, 0664)
+	}
 
 	return dir, err
 }
 
-func composerValidate(w http.ResponseWriter, dir string) error {
+func composerValidate(w http.ResponseWriter, composerJSON *composerProject) error {
 	cmd := exec.Command("composer", "validate")
-	cmd.Dir = dir
-	appLogger.Debug("Running composer validate.", "PWD", dir)
+	cmd.Dir = composerJSON.directory
+	appLogger.Debug("Running composer validate.", "PWD", composerJSON.directory)
 	output, err := cmd.CombinedOutput()
 	if err != nil || !cmd.ProcessState.Success() {
 		appLogger.Debug("Failed to run 'composer validate'.", "error", err, "output", string(output))
 		w.WriteHeader(400)
 		w.Header().Add("Content-Type", "text/plain")
-		fmt.Fprint(w, "Failed to validate composer.json file - please submit a valid composer file")
+		fmt.Fprint(w, "Failed to validate Composer file - please submit a valid composer.json or composer.lock file")
 		return err
 	}
 	return nil
 }
 
-func composerInstall(w http.ResponseWriter, dir string) error {
+func composerInstall(w http.ResponseWriter, composerJSON *composerProject) error {
 	cmd := exec.Command("composer", "install")
-	cmd.Dir = dir
+	cmd.Dir = composerJSON.directory
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	appLogger.Debug("Running composer install.", "PWD", dir)
+	appLogger.Debug("Running composer install.", "PWD", composerJSON.directory)
 	err := cmd.Run()
 	// output, err = cmd.CombinedOutput()
 	if err != nil || !cmd.ProcessState.Success() {
@@ -153,16 +175,22 @@ func composerInstall(w http.ResponseWriter, dir string) error {
 	return nil
 }
 
-func composerArchive(w http.ResponseWriter, dir string, archiveFormat string) error {
+func composerArchive(w http.ResponseWriter, composerJSON *composerProject, archiveFormat string) error {
+
+	if composerJSON.isComposerLock {
+		appLogger.Debug("Including dummy composer.json in generated vendor archive'",
+			"directory", composerJSON.directory)
+	}
+
 	cmd := exec.Command("composer", "archive",
 		"--file=vendor",
 		fmt.Sprintf("--format=%s", strings.ToLower(archiveFormat)),
 		"--quiet",
 	)
-	cmd.Dir = dir
+	cmd.Dir = composerJSON.directory
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	appLogger.Debug("Running composer archive.", "PWD", dir)
+	appLogger.Debug("Running composer archive.", "PWD", composerJSON.directory)
 	err := cmd.Run()
 	// output, err = cmd.CombinedOutput()
 	if err != nil || !cmd.ProcessState.Success() {
@@ -207,7 +235,7 @@ func VendorHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	appLogger.Info("Processing request for vendor/extension",
 		"vendor", projectURLName, "extension", archiveFormat)
-	// 2. parse the composer.json into a composerProject struct
+
 	formFile, composerJSONBytes, err := readMultipartForm(w, r)
 	if err != nil {
 		return
@@ -216,21 +244,32 @@ func VendorHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	composerJSON.Filename = projectURLName
-	dir, err := createProjectDirectory(w, projectURLName, composerJSONBytes)
+	dir, err := createProjectDirectory(w, composerJSON, composerJSONBytes)
 	if err != nil {
 		return
 	}
-	appLogger.Info("Processing composer.json", "project", composerJSON.ProjectName, "directory", dir)
+	composerJSON.directory = dir
+	if composerJSON.isComposerLock {
+		appLogger.Info("Processing composer.lock file",
+			"hash", composerJSON.ContentHash,
+			"directory", composerJSON.directory)
+	} else {
+		appLogger.Info("Processing composer.json file",
+			"project", composerJSON.ProjectName,
+			"directory", composerJSON.directory)
+	}
 
-	if err = composerValidate(w, dir); err != nil {
+	if !composerJSON.isComposerLock {
+		if err = composerValidate(w, composerJSON); err != nil {
+			return
+		}
+	}
+
+	if err = composerInstall(w, composerJSON); err != nil {
 		return
 	}
-	if err = composerInstall(w, dir); err != nil {
-		return
-	}
 
-	if err = composerArchive(w, dir, archiveFormat); err != nil {
+	if err = composerArchive(w, composerJSON, archiveFormat); err != nil {
 		return
 	}
 
