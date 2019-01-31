@@ -35,11 +35,9 @@ func main() {
 	flag.Parse()
 
 	client = &http.Client{}
-	uploadName := "test"
-	uploadURL := fmt.Sprintf("http://%s:%s/vendor/%s/%s",
+	uploadURL := fmt.Sprintf("http://%s:%s/vendor/%s",
 		serverHost,
 		serverPort,
-		uploadName,
 		archiveFormat,
 	)
 	bodyBuf := &bytes.Buffer{}

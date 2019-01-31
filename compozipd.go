@@ -49,18 +49,24 @@ type composerProject struct {
 	isComposerLock bool
 }
 
-func parseURLParameters(w http.ResponseWriter, r *http.Request) (string, string, error) {
+func (c *composerProject) getName() string {
+	if c.isComposerLock {
+		return c.ContentHash
+	}
+	return c.ProjectName
+}
+
+func parseURLParameters(w http.ResponseWriter, r *http.Request) (string, error) {
 	params := mux.Vars(r)
-	projectURLName := string(params["name"])
 	archiveFormat := strings.ToLower(params["extension"])
 	if strings.Compare(archiveFormat, "zip") != 0 && strings.Compare(archiveFormat, "tar") != 0 {
 		appLogger.Warn("Invalid format type specified", "extension", archiveFormat)
 		w.WriteHeader(400)
 		w.Header().Add("Content-Type", "text/plain")
 		fmt.Fprint(w, "Please specify valid archive type, either 'zip' or 'tar'")
-		return projectURLName, archiveFormat, errors.New("Invalid file type specified")
+		return "", errors.New("Invalid file type specified")
 	}
-	return projectURLName, archiveFormat, nil
+	return archiveFormat, nil
 }
 
 func readMultipartForm(w http.ResponseWriter, r *http.Request) (*multipart.FileHeader, []byte, error) {
@@ -81,7 +87,13 @@ func readMultipartForm(w http.ResponseWriter, r *http.Request) (*multipart.FileH
 		fmt.Fprintf(w, "File could not be read in request")
 		return nil, nil, err
 	}
-	composerFiles := multiPartForm.File["composer"]
+
+	composerFiles, ok := multiPartForm.File["composer"]
+	if !ok {
+		appLogger.Error("Multipart form-data didn't contain 'composer' file.")
+		return nil, nil, errors.New("Please provide 'composer' file in the form-data")
+	}
+
 	if composerFiles == nil || len(composerFiles) < 1 {
 		appLogger.Error("Failed to read 'composer' file from form-data.")
 		w.WriteHeader(400)
@@ -229,21 +241,24 @@ func sendDownload(w http.ResponseWriter, dir, archiveFormat string) error {
 
 // VendorHandler Handles the Http request
 func VendorHandler(w http.ResponseWriter, r *http.Request) {
-	projectURLName, archiveFormat, err := parseURLParameters(w, r)
+	archiveFormat, err := parseURLParameters(w, r)
 	if err != nil {
 		return
 	}
-	appLogger.Info("Processing request for vendor/extension",
-		"vendor", projectURLName, "extension", archiveFormat)
-
 	formFile, composerJSONBytes, err := readMultipartForm(w, r)
 	if err != nil {
+		w.WriteHeader(400)
+		fmt.Fprintf(w, "Error: %s", err)
 		return
 	}
 	composerJSON, err := parseComposerJSON(w, composerJSONBytes, formFile.Filename)
 	if err != nil {
 		return
 	}
+	appLogger.Info("Processing request for project",
+		"name-id", composerJSON.getName(), 
+		"extension", archiveFormat)
+
 	dir, err := createProjectDirectory(w, composerJSON, composerJSONBytes)
 	if err != nil {
 		return
@@ -306,7 +321,7 @@ Thanks! :)`)
 	}
 
 	router := mux.NewRouter()
-	router.HandleFunc("/vendor/{name}/{extension}", VendorHandler).Methods("POST")
+	router.HandleFunc("/vendor/{extension}", VendorHandler).Methods("POST")
 	http.Handle("/", router)
 	appLogger.Info("Starting server", "address", bind, "workingDirectory", uploadsDir)
 	if err := http.ListenAndServe(bind, nil); err != nil {
