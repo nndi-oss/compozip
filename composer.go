@@ -5,9 +5,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
+	"path"
 	"strings"
 )
 
@@ -115,4 +117,27 @@ func composerArchive(w http.ResponseWriter, composerJSON *composerProject, archi
 		return err
 	}
 	return nil
+}
+
+func createProjectDirectory(w http.ResponseWriter, composerJSON *composerProject, data []byte) (string, error) {
+	dir, err := ioutil.TempDir(uploadsDir, "vendor")
+	if err != nil {
+		appLogger.Error("Failed to create tmp directory.", "error", err)
+		w.WriteHeader(500)
+		w.Header().Add("Content-Type", "text/plain")
+		fmt.Fprint(w, "Failed to validate Composer file - please submit a valid composer.json or composer.lock file")
+		return dir, err
+	}
+	if composerJSON.isComposerLock {
+		err = ioutil.WriteFile(path.Join(dir, "composer.json"), []byte(dummyComposer), 0664)
+		if err != nil {
+			appLogger.Error("Failed to write dummy json", "dir", dir, "error", err)
+			return dir, err
+		}
+		err = ioutil.WriteFile(path.Join(dir, "composer.lock"), data, 0664)
+	} else {
+		err = ioutil.WriteFile(path.Join(dir, "composer.json"), data, 0664)
+	}
+
+	return dir, err
 }
