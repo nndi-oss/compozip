@@ -34,13 +34,13 @@ You have at least two options, illustrated below:
 With a `composer.json` file:
 
 ```sh
-$ curl -i -F "composer=@composer.json" --output test-vendor.zip -XPOST http://localhost:8080/vendor/test/zip
+$ curl -F "composer=@composer.json" --output test-vendor.zip -XPOST http://localhost:8080/vendor/test/zip
 ```
 
 Or with a `composer.lock` file:
 
 ```
-$ curl -i -F "composer=@composer.lock" --output test-vendor.zip -XPOST http://localhost:8080/vendor/test/zip
+$ curl -F "composer=@composer.lock" --output test-vendor.zip -XPOST http://localhost:8080/vendor/test/zip
 ```
 
 ### Download with `compozip` CLI
