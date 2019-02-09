@@ -14,7 +14,7 @@ Vendor archives can be downloaded as either `zip` or `tar` archives.
 Basically, it's a simple API with one endpoint. It also has an [OpenAPI specification](./swagger.yaml) ;P
 
 ```
-POST /vendor/{project}/{extension}
+POST /vendor/{extension}
 
 Content-Type: multipart/form-data
 
@@ -29,24 +29,10 @@ Fortunately, you don't have to code to download from the API endpoint.
 
 You have at least two options, illustrated below:
 
-### Download with CURL
-
-With a `composer.json` file:
+### 1. Download with `compozip` CLI
 
 ```sh
-$ curl -F "composer=@composer.json" --output test-vendor.zip -XPOST http://localhost:8080/vendor/test/zip
-```
-
-Or with a `composer.lock` file:
-
-```
-$ curl -F "composer=@composer.lock" --output test-vendor.zip -XPOST http://localhost:8080/vendor/test/zip
-```
-
-### Download with `compozip` CLI
-
-```sh
-$ ./compozip -port 8080 -c composer.json
+$ ./compozip -host "localhost" -port 8080 -f composer.json
 Uploading composer.json ...
 Downloading vendor archive (vendor.zip)...
 Downloaded vendor archive to vendor.zip
@@ -55,7 +41,21 @@ $ ls
 composer.json  vendor.zip
 ```
 
-<small>NOTE: You should be able to use a tool like [Postman](https://getpostman.com) 
+### 2. Download with CURL
+
+With a `composer.json` file:
+
+```sh
+$ curl -F "composer=@composer.json" --output test-vendor.zip -XPOST http://localhost:8080/vendor/zip
+```
+
+Or with a `composer.lock` file:
+
+```
+$ curl -F "composer=@composer.lock" --output test-vendor.zip -XPOST http://localhost:8080/vendor/zip
+```
+
+<small>NOTE: You should also be able to use a tool like [Postman](https://getpostman.com) 
 or create your own HTML form ([See example in index.html](./index.html))</small>
 
 ## Archives generated from `composer.lock` files
