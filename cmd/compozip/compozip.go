@@ -21,14 +21,16 @@ var (
 	serverPort    string
 	filename      string
 	archiveFormat string
+	outputName    string
 	client        *http.Client
 )
 
 func init() {
 	flag.StringVar(&serverHost, "host", "localhost", "compozipd Server address")
 	flag.StringVar(&serverPort, "port", "80", "compozipd Server address")
-	flag.StringVar(&filename, "c", "composer.json", "Composer.json file to upload")
-	flag.StringVar(&archiveFormat, "f", "zip", "Archive format. One of 'zip', 'tar'")
+	flag.StringVar(&filename, "f", "composer.json", "Composer.json file to upload")
+	flag.StringVar(&archiveFormat, "ext", "zip", "Archive format. One of 'zip', 'tar'")
+	flag.StringVar(&outputName, "o", "vendor", "Name to output to (default vendor.<ext>)'")
 }
 
 func main() {
@@ -73,7 +75,10 @@ func main() {
 		return
 	}
 	defer response.Body.Close()
-	fmt.Printf("Downloading vendor archive (vendor.%s)...\n", archiveFormat)
+	if outputName == "" {
+		outputName = "vendor"
+	}
+	fmt.Printf("Downloading vendor archive (%s.%s)...\n", outputName, archiveFormat)
 	if response.StatusCode == 400 || response.StatusCode == 500 {
 		fmt.Fprintf(os.Stderr, "Failed to download vendor.%s. Got error: %s\n",
 			archiveFormat,
@@ -91,7 +96,7 @@ func main() {
 	}
 
 	baseDirectory, _ := filepath.Abs(filepath.Dir(os.Args[0]))
-	vendorArchiveName := fmt.Sprintf("vendor.%s", archiveFormat)
+	vendorArchiveName := fmt.Sprintf("%s.%s", outputName, archiveFormat)
 	vendorFullPath := path.Join(baseDirectory, vendorArchiveName)
 	err = ioutil.WriteFile(vendorFullPath, vendorZIPBytes, 0664)
 	if err != nil {
