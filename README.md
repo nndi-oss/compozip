@@ -1,11 +1,10 @@
 Compozip
 ========
 
-This project implements a server (and client) for downloading packaged composer
-vendor folders.
+Compozip is a Server (and Client) for downloading packaged composer vendor folders.
 
 Upload your `composer.json` or `composer.lock` and the server will take of downloading the 
-dependencies and zip them up in a nice downloadable archive.
+dependencies, zip them up and give you a nice downloadable archive.
 
 Vendor archives can be downloaded as either `zip` or `tar` archives.
 
@@ -91,10 +90,10 @@ $ git clone https://github.com/zikani03/compozipd.git
 $ cd compozipd
 
 # Build the Server
-$ go build compozipd.go
+$ go build 
 
 # Build the CLI client
-$ go build compozip.go
+$ go build cmd/compozip/compozip.go
 ```
 
 ## Starting the Server
@@ -107,7 +106,7 @@ $ compozipd -u ./uploads -h "localhost:8080"
 
 ### Run the server via Docker
 
-This project comes with a [Dockerfile](./Dockerfile) for running the server in
+This project comes with a [Dockerfile](./Dockerfile) for running the Server in
 a Docker container. 
 
 Use the following commands to build and start the Docker container.
@@ -117,24 +116,14 @@ $ sudo docker	build --rm -t=compozipd .
 $ sudo docker	run --rm --publish=80:80 -it compozipd
 ```
 
-## Why did you make this?
-
-I saw a website that provided a "service" like this sometime back but couldn't 
-seem to find it, so I decided to implement it myself.
-
 ## What problem does it solve/address?
 
 Unfortunately downloading composer dependencies sometimes takes a long time 
 since Composer has to do multiple HTTP/Git requests.
 
-> The idea is to put this on a fast server in the Cloud to download the dependencies,
-> and just download the archive which _should be_ faster since it's just one HTTP
-> request instead of bajillions.
-
-I intend to try using either [WebSockets](https://w3c.github.io/websockets/),
-Server Sent Events or [Rsocket](http://rsocket.io) to stream the bytes of the 
-vendor archive to the client.
-I hope that would make it somewhat faster to download the archive - not sure how true that is, yet.
+The idea is to put this on a server with fast internet in the Cloud to download
+the dependencies, so you just download the archive which _should be_ faster 
+since it's just one HTTP request instead of bajillions.
 
 ## Caveats
 
@@ -142,21 +131,22 @@ I hope that would make it somewhat faster to download the archive - not sure how
 `composer install` on your machine as composer most likely has a cache on your machine if
 you use it often.
 
-* This won't play nicely with private repositories/composer packages. I don't know
+* This won't play nicely with private repositories/composer packages. We don't have
 a good solution for that yet. Sorry.
 
 * The Docker image/container uses [php:7.2-fpm-alpine](https://github.com/docker-library/php/blob/b99209cc078ebb7bf4614e870c2d69e0b3bed399/7.2/alpine3.8/fpm/Dockerfile) 
 image from [Dockerhub](https://hub.docker.com/_/php/) and as such may NOT contain
-all the PHP extensions that dependencies in your `composer.json` or `composer.lock` require. I
-might create a base Docker image sometime that installs the MOST common 
-PHP extensions to prevent this from happening. Contributions are WELCOME here!
+all the PHP extensions that dependencies in your `composer.json` or `composer.lock` require.
+We might create a base Docker image that contains MOST of the common 
+PHP extensions to prevent this from happening.
 
-* This is not _production_ ready but you are FREE to try whatever, yo.
+* This is NOT YET _production_ ready.
 
 ## Contributing
 
-You can file an Issue if you find a bug or have an Idea to improve this.
-Pull requests are most welcome and encouraged. :)
+**Contributions are very WELCOME here!**
+
+File an Issue or send a Pull Request if you find a bug or have a feature idea to improve this project.
 
 ## LICENSE
 
@@ -164,4 +154,4 @@ MIT
 
 ----
 
-Copyright (c) 2018, Zikani Nyirenda Mwase
+Copyright (c) 2018, NNDI
