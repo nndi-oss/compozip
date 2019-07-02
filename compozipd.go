@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"os"
 
+	_ "github.com/nndi-oss/compozip/statik"
+	"github.com/rakyll/statik/fs"
 	"github.com/gorilla/mux"
 	"github.com/hashicorp/go-hclog"
 )
@@ -100,8 +102,15 @@ Thanks! :)`)
 		return
 	}
 
+	statikFS, err := fs.New()
+	if err != nil {
+	  appLogger.Error("Failed to start Server", "error", err)
+	  return
+	}
 	router := mux.NewRouter()
+	router.Handle("/", http.FileServer(statikFS))
 	router.HandleFunc("/vendor/{extension}", VendorHandler).Methods("POST")
+	// http.Handle("/", http.StripPrefix("/public/", ))
 	http.Handle("/", router)
 	appLogger.Info("Starting server", "address", bind, "workingDirectory", uploadsDir)
 	if err := http.ListenAndServe(bind, nil); err != nil {
