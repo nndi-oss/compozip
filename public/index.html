@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <meta name="author" content="NNDI">
+  <meta name="keywords" content="NNDI, Composer, composer.json, vendor, composer.lock, packagist, php, php7">
+  <title>Compozip: Repeatable Composer dependencies</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.7.5/css/bulma.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.9.0/css/all.min.css">
+</head>
+
+<body>
+  <div class="container">
+    <article class="tile notification">
+        <div class="content">
+          <p class="title">COMPOZIP</p>
+          <p class="subtitle">Repeatable composer dependencies for PHP developers</p>
+          <div class="content">
+              <p class="notice">
+                Upload your <code>composer.lock</code> or <code>composer.json</code>
+                file and wait to download the vendor.zip
+              </p>
+              <form action="/vendor/upload/zip" method="post" enctype="multipart/form-data">
+                <div class="file">
+                    <label class="file-label">
+                      <input class="file-input" type="file" name="composerFile">
+                      <span class="file-cta">
+                        <span class="file-icon">
+                          <i class="fas fa-upload"></i>
+                        </span>
+                        <span class="file-label">
+                          Choose a file…
+                        </span>
+                      </span>
+                    </label>
+                  </div>
+                  <br/>
+                  <button class="button is-success">Download</button>
+                  
+              </form>
+          </div>
+        </div>
+      </article>
+  
+  <hr/>
+  <div class="has-text-centered">
+    <small>
+      An <a href="https://github.com/nndi-oss/compozip">Open Source Project</a> by <a href="https://nndi-tech.com">NNDI</a>
+    </small>
+  </div>
+</div>
+</body>
+
+</html>
